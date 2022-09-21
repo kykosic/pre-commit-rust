@@ -5,8 +5,6 @@ import subprocess
 from functools import lru_cache
 from pathlib import Path
 
-ACTIONS = ("fmt", "check", "clippy")
-
 
 def main() -> int:
     parser = argparse.ArgumentParser()
