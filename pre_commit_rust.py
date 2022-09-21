@@ -10,23 +10,56 @@ ACTIONS = ("fmt", "check", "clippy")
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "action",
-        choices=ACTIONS,
+    parser.set_defaults(func=None)
+    sps = parser.add_subparsers(dest="cmd")
+
+    sp = sps.add_parser("fmt")
+    sp.add_argument(
+        "--config",
+        type=str,
+        help="Comma-separated key=value config pairs for rustfmt",
     )
-    parser.add_argument(
-        "files",
-        nargs="*",
-        type=Path,
+    sp.set_defaults(func=run_fmt)
+    add_files_nargs(sp)
+
+    sp = sps.add_parser("check")
+    sp.add_argument(
+        "--features",
+        type=str,
+        help="Space or comma-separated list of features to check",
     )
+    sp.add_argument(
+        "--all-features",
+        action="store_true",
+        help="Activate all available features",
+    )
+    sp.set_defaults(func=run_check)
+    add_files_nargs(sp)
+
+    sp = sps.add_parser("clippy")
+    sp.set_defaults(func=run_clippy)
+    add_files_nargs(sp)
+
     args = parser.parse_args()
+
+    if args.func is None:
+        parser.print_help()
+        return 1
 
     run_dirs = get_run_dirs(args.files)
     if not run_dirs:
         return 0
 
-    failed = sum(run_action(args.action, d) for d in run_dirs)
+    failed = sum(args.func(args, d) for d in run_dirs)
     return int(failed > 0)
+
+
+def add_files_nargs(parser: argparse.ArgumentParser):
+    parser.add_argument(
+        "files",
+        nargs="*",
+        type=Path,
+    )
 
 
 def get_run_dirs(changed_files: list[Path]) -> set[Path]:
@@ -60,17 +93,29 @@ def path_len(path: Path) -> int:
     return len(path.parts)
 
 
-def run_action(action: str, directory: Path) -> int:
-    if action == "fmt":
-        cmd = "cargo fmt --"
-    elif action == "check":
-        cmd = "cargo check"
-    elif action == "clippy":
-        cmd = "cargo clippy -- -D warnings"
-    else:
-        raise ValueError(f"Invalid action {action!r}, expected one of: {ACTIONS}")
+def run_fmt(args: argparse.Namespace, directory: Path) -> int:
+    cmd = "cargo fmt --"
+    if args.config:
+        cmd += f" --config {args.config}"
+    return run_action(cmd, directory)
 
-    proc = subprocess.run(f"{cmd}", cwd=directory, shell=True)
+
+def run_check(args: argparse.Namespace, directory: Path) -> int:
+    cmd = "cargo check"
+    if args.features is not None:
+        cmd += f" --features={args.features}"
+    if args.all_features:
+        cmd += f" --all-features"
+    return run_action(cmd, directory)
+
+
+def run_clippy(_: argparse.Namespace, directory: Path) -> int:
+    cmd = "cargo clippy -- -D warnings"
+    return run_action(cmd, directory)
+
+
+def run_action(cmd: str, directory: Path) -> int:
+    proc = subprocess.run(cmd, cwd=directory, shell=True)
     return proc.returncode
 
 
