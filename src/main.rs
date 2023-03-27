@@ -73,10 +73,10 @@ const NOT_FOUND: &str = "failed to run 'cargo'";
 
 fn run_fmt(dir: PathBuf, config: &Option<String>) -> Result<()> {
     let mut cmd = cargo();
-    cmd.args(&["fmt", "--"]);
+    cmd.args(["fmt", "--"]);
 
     if let Some(config) = config {
-        cmd.args(&["--config", config]);
+        cmd.args(["--config", config]);
     }
 
     cmd.current_dir(dir);
@@ -94,7 +94,7 @@ fn run_check(dir: PathBuf, features: &Option<String>, all_features: bool) -> Res
     if all_features {
         cmd.arg("--all-features");
     } else if let Some(features) = features {
-        cmd.args(&["--features", features]);
+        cmd.args(["--features", features]);
     }
 
     cmd.current_dir(dir);
@@ -107,7 +107,7 @@ fn run_check(dir: PathBuf, features: &Option<String>, all_features: bool) -> Res
 
 fn run_clippy(dir: PathBuf) -> Result<()> {
     let status = cargo()
-        .args(&["clippy", "--", "-D", "warnings"])
+        .args(["clippy", "--", "-D", "warnings"])
         .current_dir(dir)
         .status()
         .context(NOT_FOUND)?;
@@ -160,7 +160,7 @@ fn is_rust_file<P: AsRef<Path>>(path: P) -> bool {
             return true;
         }
     }
-    return false;
+    false
 }
 
 fn cargo() -> Command {
