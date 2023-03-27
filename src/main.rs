@@ -1,8 +1,8 @@
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, ExitCode};
 
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 use clap::{Parser, Subcommand};
 use glob::glob;
 
@@ -38,7 +38,7 @@ enum Cmd {
     Clippy,
 }
 
-fn main() -> Result<()> {
+fn main() -> ExitCode {
     let opts = Opts::parse();
 
     let run_dirs = get_run_dirs(&opts.files);
@@ -53,18 +53,26 @@ fn main() -> Result<()> {
             } => run_check(dir, features, *all_features),
             Cmd::Clippy => run_clippy(dir),
         })
-        .filter(Result::is_err)
+        .filter(|res| match res {
+            Ok(()) => false,
+            Err(e) => {
+                eprintln!("{}", e);
+                true
+            }
+        })
         .count();
 
     if err_count > 0 {
-        bail!("{err_count} checks failed")
+        ExitCode::FAILURE
     } else {
-        Ok(())
+        ExitCode::SUCCESS
     }
 }
 
+const NOT_FOUND: &str = "failed to run 'cargo'";
+
 fn run_fmt(dir: PathBuf, config: &Option<String>) -> Result<()> {
-    let mut cmd = Command::new("cargo");
+    let mut cmd = cargo();
     cmd.args(&["fmt", "--"]);
 
     if let Some(config) = config {
@@ -72,14 +80,15 @@ fn run_fmt(dir: PathBuf, config: &Option<String>) -> Result<()> {
     }
 
     cmd.current_dir(dir);
-    if !cmd.status()?.success() {
+    let status = cmd.status()?;
+    if !status.success() {
         bail!("cargo fmt modified files");
     }
     Ok(())
 }
 
 fn run_check(dir: PathBuf, features: &Option<String>, all_features: bool) -> Result<()> {
-    let mut cmd = Command::new("cargo");
+    let mut cmd = cargo();
     cmd.arg("check");
 
     if all_features {
@@ -89,17 +98,19 @@ fn run_check(dir: PathBuf, features: &Option<String>, all_features: bool) -> Res
     }
 
     cmd.current_dir(dir);
-    if !cmd.status()?.success() {
+    let status = cmd.status().context(NOT_FOUND)?;
+    if !status.success() {
         bail!("cargo check failed");
     }
     Ok(())
 }
 
 fn run_clippy(dir: PathBuf) -> Result<()> {
-    let status = Command::new("cargo")
+    let status = cargo()
         .args(&["clippy", "--", "-D", "warnings"])
         .current_dir(dir)
-        .status()?;
+        .status()
+        .context(NOT_FOUND)?;
     if !status.success() {
         bail!("cargo clippy failed");
     }
@@ -109,6 +120,7 @@ fn run_clippy(dir: PathBuf) -> Result<()> {
 fn get_run_dirs(changed_files: &[PathBuf]) -> HashSet<PathBuf> {
     let root_dirs = find_cargo_root_dirs();
     let mut run_dirs: HashSet<PathBuf> = HashSet::new();
+    let current_dir = std::env::current_dir().unwrap();
     for path in changed_files {
         if !is_rust_file(path) {
             continue;
@@ -118,7 +130,7 @@ fn get_run_dirs(changed_files: &[PathBuf]) -> HashSet<PathBuf> {
             .filter(|d| path.starts_with(d))
             .max_by_key(|path| path.components().count())
         {
-            run_dirs.insert(root.to_owned());
+            run_dirs.insert(current_dir.join(root));
         }
     }
     run_dirs
@@ -149,4 +161,13 @@ fn is_rust_file<P: AsRef<Path>>(path: P) -> bool {
         }
     }
     return false;
+}
+
+fn cargo() -> Command {
+    /// The compile-time location of cargo. Used to access the pre-commit managed environment
+    /// of cargo for subcommands;
+    const CARGO_HOME: &str = std::env!("CARGO_HOME");
+
+    let bin = PathBuf::from(CARGO_HOME).join("bin").join("cargo");
+    Command::new(bin)
 }
