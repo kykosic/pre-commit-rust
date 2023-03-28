@@ -69,10 +69,8 @@ fn main() -> ExitCode {
     }
 }
 
-const NOT_FOUND: &str = "failed to run 'cargo'";
-
 fn run_fmt(dir: PathBuf, config: &Option<String>) -> Result<()> {
-    let mut cmd = cargo();
+    let (mut cmd, bin) = cargo();
     cmd.args(["fmt", "--"]);
 
     if let Some(config) = config {
@@ -80,15 +78,17 @@ fn run_fmt(dir: PathBuf, config: &Option<String>) -> Result<()> {
     }
 
     cmd.current_dir(dir);
-    let status = cmd.status()?;
-    if !status.success() {
+    let status = cmd
+        .status()
+        .context(format!("failed to run fmt via {bin}"))?;
+    if status.success() {
         bail!("cargo fmt modified files");
     }
     Ok(())
 }
 
 fn run_check(dir: PathBuf, features: &Option<String>, all_features: bool) -> Result<()> {
-    let mut cmd = cargo();
+    let (mut cmd, bin) = cargo();
     cmd.arg("check");
 
     if all_features {
@@ -98,7 +98,9 @@ fn run_check(dir: PathBuf, features: &Option<String>, all_features: bool) -> Res
     }
 
     cmd.current_dir(dir);
-    let status = cmd.status().context(NOT_FOUND)?;
+    let status = cmd
+        .status()
+        .context(format!("failed to run check via {bin}"))?;
     if !status.success() {
         bail!("cargo check failed");
     }
@@ -106,11 +108,12 @@ fn run_check(dir: PathBuf, features: &Option<String>, all_features: bool) -> Res
 }
 
 fn run_clippy(dir: PathBuf) -> Result<()> {
-    let status = cargo()
+    let (mut cmd, bin) = cargo();
+    let status = cmd
         .args(["clippy", "--", "-D", "warnings"])
         .current_dir(dir)
         .status()
-        .context(NOT_FOUND)?;
+        .context(format!("failed to run clippy via {bin}"))?;
     if !status.success() {
         bail!("cargo clippy failed");
     }
@@ -163,11 +166,11 @@ fn is_rust_file<P: AsRef<Path>>(path: P) -> bool {
     false
 }
 
-fn cargo() -> Command {
+fn cargo() -> (Command, String) {
     /// The compile-time location of cargo. Used to access the pre-commit managed environment
     /// of cargo for subcommands;
     const CARGO_HOME: &str = std::env!("CARGO_HOME");
 
     let bin = PathBuf::from(CARGO_HOME).join("bin").join("cargo");
-    Command::new(bin)
+    (Command::new(&bin), bin.to_string_lossy().to_string())
 }
