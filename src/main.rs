@@ -81,7 +81,7 @@ fn run_fmt(dir: PathBuf, config: &Option<String>) -> Result<()> {
     let status = cmd
         .status()
         .context(format!("failed to run fmt via {bin}"))?;
-    if status.success() {
+    if !status.success() {
         bail!("cargo fmt modified files");
     }
     Ok(())
