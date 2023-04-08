@@ -150,6 +150,7 @@ impl Cmd {
 fn check_toolchain(opts: &CargoOpts) -> Result<()> {
     match toolchain_version()? {
         Some(ver) => {
+            eprintln!("msrv={:?} found_rv={}", &opts.rust_version, ver);
             if let Some(msrv) = &opts.rust_version {
                 if &ver < msrv {
                     if opts.auto_update {
