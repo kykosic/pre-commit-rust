@@ -251,6 +251,11 @@ fn is_rust_file<P: AsRef<Path>>(path: P) -> bool {
 fn main() -> ExitCode {
     let opts = Opts::parse();
 
+    let run_dirs = get_run_dirs(&opts.files);
+    if run_dirs.is_empty() {
+        return ExitCode::SUCCESS;
+    }
+
     if let Err(e) = check_toolchain(&opts.cargo_opts) {
         eprintln!("{e}");
         return ExitCode::FAILURE;
@@ -260,7 +265,6 @@ fn main() -> ExitCode {
         return ExitCode::FAILURE;
     }
 
-    let run_dirs = get_run_dirs(&opts.files);
     let err_count = run_dirs
         .into_iter()
         .map(|dir| opts.cmd.run(dir))
