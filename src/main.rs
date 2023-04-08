@@ -150,7 +150,7 @@ impl Cmd {
 fn check_toolchain(opts: &CargoOpts) -> Result<()> {
     match toolchain_version()? {
         Some(ver) => {
-            eprintln!("msrv={:?} found_rv={}", &opts.rust_version, ver);
+            eprintln!("msrv={:?} found_rv={} PATH={:?}", &opts.rust_version, ver, std::env::var("PATH"));
             if let Some(msrv) = &opts.rust_version {
                 if &ver < msrv {
                     if opts.auto_update {
