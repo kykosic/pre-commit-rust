@@ -15,7 +15,7 @@ struct Opts {
     #[command(subcommand)]
     cmd: Cmd,
 
-    /// List of chaned files to target.
+    /// List of changed files to target.
     #[clap(global = true)]
     files: Vec<PathBuf>,
 
