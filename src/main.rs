@@ -15,7 +15,7 @@ struct Opts {
     #[command(subcommand)]
     cmd: Cmd,
 
-    /// List of chaned files to target
+    /// List of chaned files to target.
     #[clap(global = true)]
     files: Vec<PathBuf>,
 
@@ -26,10 +26,12 @@ struct Opts {
 /// Configuration for cargo toolchain versioning
 #[derive(Debug, Args)]
 struct CargoOpts {
-    /// Minimum rustc version, checked before running
+    /// Minimum rustc version, checked before running.
+    // Alternatively, you can set pre-commit `default_language_version.rust`, and a managed rust
+    // environment will be created and used at the exact version specified.
     #[clap(long, global = true)]
     rust_version: Option<Version>,
-    /// If `rust_version` is specified and an update is needed, automatically run `rustup update`
+    /// If `rust_version` is specified and an update is needed, automatically run `rustup update`.
     #[clap(long, global = true)]
     auto_update: bool,
     /// Override the error message printed if `cargo` or the command executable is not found.
@@ -150,7 +152,6 @@ impl Cmd {
 fn check_toolchain(opts: &CargoOpts) -> Result<()> {
     match toolchain_version()? {
         Some(ver) => {
-            eprintln!("msrv={:?} found_rv={} PATH={:?}", &opts.rust_version, ver, std::env::var("PATH"));
             if let Some(msrv) = &opts.rust_version {
                 if &ver < msrv {
                     if opts.auto_update {
